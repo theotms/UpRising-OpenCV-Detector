@@ -1,0 +1,217 @@
+#include <PS4Controller.h>
+
+/* ---------------- Motor Pin Definitions ---------------- */
+#define LEFT_DIR_A   21
+#define LEFT_DIR_B   23
+#define LEFT_PWM     19
+#define RIGHT_DIR_A  25
+#define RIGHT_DIR_B  33
+#define RIGHT_PWM    32
+
+const char *esp32MAC = "";  // Leave blank if paired
+
+/* ---------------- Constants ---------------- */
+const uint8_t MAX_SPEED = 255;
+const int STICK_CENTER_MIN = -10;  // Lower bound for center deadzone
+const int STICK_CENTER_MAX = 10;   // Upper bound for center deadzone
+
+/* ---------------- Motor Control Functions ---------------- */
+// Left motor control
+void leftMotor(int16_t speed) {
+  if (speed > 0) {
+    // Forward
+    digitalWrite(LEFT_DIR_A, HIGH);
+    digitalWrite(LEFT_DIR_B, LOW);
+    analogWrite(LEFT_PWM, speed);
+  } else if (speed < 0) {
+    // Backward
+    digitalWrite(LEFT_DIR_A, LOW);
+    digitalWrite(LEFT_DIR_B, HIGH);
+    analogWrite(LEFT_PWM, -speed);
+  } else {
+    // Stop
+    digitalWrite(LEFT_DIR_A, LOW);
+    digitalWrite(LEFT_DIR_B, LOW);
+    analogWrite(LEFT_PWM, 0);
+  }
+}
+
+// Right motor control
+void rightMotor(int16_t speed) {
+  if (speed > 0) {
+    // Forward
+    digitalWrite(RIGHT_DIR_A, HIGH);
+    digitalWrite(RIGHT_DIR_B, LOW);
+    analogWrite(RIGHT_PWM, speed);
+  } else if (speed < 0) {
+    // Backward
+    digitalWrite(RIGHT_DIR_A, LOW);
+    digitalWrite(RIGHT_DIR_B, HIGH);
+    analogWrite(RIGHT_PWM, -speed);
+  } else {
+    // Stop
+    digitalWrite(RIGHT_DIR_A, LOW);
+    digitalWrite(RIGHT_DIR_B, LOW);
+    analogWrite(RIGHT_PWM, 0);
+  }
+}
+
+void stopMotors() {
+  leftMotor(0);
+  rightMotor(0);
+}
+
+/* ---------------- PS4 Event ---------------- */
+void onPS4Notify() {
+  bool l2Pressed = PS4.data.button.l1;
+  bool r2Pressed = PS4.data.button.r1;
+  int rightStickX = PS4.data.analog.stick.rx;
+  
+  // Check if joystick is outside deadzone
+  bool stickOutsideDeadzone = (rightStickX < STICK_CENTER_MIN || rightStickX > STICK_CENTER_MAX);
+  
+  if (l2Pressed && !r2Pressed) {
+    // Forward movement
+    if (stickOutsideDeadzone) {
+      // Forward with steering
+      int16_t leftSpeed = MAX_SPEED;
+      int16_t rightSpeed = MAX_SPEED;
+      String turnDirection = "";
+      String turnIntensity = "";
+      
+      if (rightStickX < STICK_CENTER_MIN) {
+        // Turn left
+        turnDirection = "LEFT";
+        int stickValue = abs(rightStickX);
+        
+        if (stickValue >= 80) {  // MAX TURN (-127 to -80) - TIGHTEST TURN
+          leftSpeed = 50;  // Very slow left motor for tight turn
+          turnIntensity = "MAX TURNING";
+        } else if (stickValue >= 45) {  // TURN (-79 to -45)
+          leftSpeed = MAX_SPEED - 120;  // 135
+          turnIntensity = "TURNING";
+        } else {  // MIN TURN (-44 to -11)
+          leftSpeed = MAX_SPEED - 60;  // 195
+          turnIntensity = "MIN TURNING";
+        }
+      } else if (rightStickX > STICK_CENTER_MAX) {
+        // Turn right
+        turnDirection = "RIGHT";
+        int stickValue = rightStickX;
+        
+        if (stickValue >= 80) {  // MAX TURN (80 to 127) - TIGHTEST TURN
+          rightSpeed = 50;  // Very slow right motor for tight turn
+          turnIntensity = "MAX TURNING";
+        } else if (stickValue >= 45) {  // TURN (45 to 79)
+          rightSpeed = MAX_SPEED - 120;  // 135
+          turnIntensity = "TURNING";
+        } else {  // MIN TURN (11 to 44)
+          rightSpeed = MAX_SPEED - 60;  // 195
+          turnIntensity = "MIN TURNING";
+        }
+      }
+      
+      leftMotor(leftSpeed);
+      rightMotor(rightSpeed);
+    } else {
+      // Forward without steering
+      leftMotor(MAX_SPEED);
+      rightMotor(MAX_SPEED);
+    }
+  } else if (r2Pressed && !l2Pressed) {
+    // Backward movement
+    if (stickOutsideDeadzone) {
+      // Backward with steering
+      int16_t leftSpeed = -MAX_SPEED;
+      int16_t rightSpeed = -MAX_SPEED;
+      String turnDirection = "";
+      String turnIntensity = "";
+      
+      if (rightStickX < STICK_CENTER_MIN) {
+        // Turn left
+        turnDirection = "LEFT";
+        int stickValue = abs(rightStickX);
+        
+        if (stickValue >= 80) {  // MAX TURN (-127 to -80) - TIGHTEST TURN
+          leftSpeed = -50;  // Very slow left motor for tight turn
+          turnIntensity = "MAX TURNING";
+        } else if (stickValue >= 45) {  // TURN (-79 to -45)
+          leftSpeed = -(MAX_SPEED - 120);  // -135
+          turnIntensity = "TURNING";
+        } else {  // MIN TURN (-44 to -11)
+          leftSpeed = -(MAX_SPEED - 60);  // -195
+          turnIntensity = "MIN TURNING";
+        }
+      } else if (rightStickX > STICK_CENTER_MAX) {
+        // Turn right
+        turnDirection = "RIGHT";
+        int stickValue = rightStickX;
+        
+        if (stickValue >= 80) {  // MAX TURN (80 to 127) - TIGHTEST TURN
+          rightSpeed = -50;  // Very slow right motor for tight turn
+          turnIntensity = "MAX TURNING";
+        } else if (stickValue >= 45) {  // TURN (45 to 79)
+          rightSpeed = -(MAX_SPEED - 120);  // -135
+          turnIntensity = "TURNING";
+        } else {  // MIN TURN (11 to 44)
+          rightSpeed = -(MAX_SPEED - 60);  // -195
+          turnIntensity = "MIN TURNING";
+        }
+      }
+      
+      leftMotor(leftSpeed);
+      rightMotor(rightSpeed);
+    } else {
+      // Backward without steering
+      leftMotor(-MAX_SPEED);
+      rightMotor(-MAX_SPEED);
+    }
+  } else {
+    // Stop motors if neither or both buttons pressed
+    stopMotors();
+  }
+}
+
+/* ---------------- Connection Events ---------------- */
+void onConnect() { 
+  Serial.println("PS4 connected"); 
+}
+
+void onDisconnect() { 
+  stopMotors();
+}
+
+/* ---------------- Setup ---------------- */
+void setup() {
+  Serial.begin(115200);
+  
+  // Configure motor pins
+  pinMode(LEFT_DIR_A, OUTPUT); 
+  pinMode(LEFT_DIR_B, OUTPUT);
+  pinMode(LEFT_PWM, OUTPUT);
+  pinMode(RIGHT_DIR_A, OUTPUT); 
+  pinMode(RIGHT_DIR_B, OUTPUT);
+  pinMode(RIGHT_PWM, OUTPUT);
+  
+  // Ensure motors start stopped
+  stopMotors();
+  
+  // Initialize PS4 controller
+  PS4.attach(onPS4Notify);
+  PS4.attachOnConnect(onConnect);
+  PS4.attachOnDisconnect(onDisconnect);
+  
+  if (strlen(esp32MAC) > 0) {
+    PS4.begin(esp32MAC);
+  } else {
+    PS4.begin();
+  }
+  }
+
+/* ---------------- Loop ---------------- */
+void loop() {
+  // Safety check: if controller disconnects, stop motors
+  if (!PS4.isConnected()) {
+    stopMotors();
+  }
+}
