@@ -7,6 +7,14 @@ find_package(OpenCV REQUIRED)
 
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-add_executable(aruco_detector main.cpp
-        BotDetection.cpp ArenaDetection.cpp BallDetection.cpp)
-target_link_libraries(aruco_detector ${OpenCV_LIBS})
+add_executable(aruco_detector
+        main.cpp
+        BotDetection.cpp
+        ArenaDetection.cpp
+        BallDetection.cpp
+)
+
+target_link_libraries(aruco_detector
+        ${OpenCV_LIBS}
+        curl
+)

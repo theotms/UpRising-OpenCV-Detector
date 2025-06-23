@@ -9,6 +9,7 @@
 #include "ball_detector.h"
 #include "arena_detector.h"
 #include "bot_detector.h"
+#include <curl/curl.h>
 
 using namespace cv;
 using namespace std;
@@ -36,7 +37,23 @@ void captureLoop(VideoCapture& cap) {
     }
 }
 
+void triggerRobotMove() {
+    CURL* curl = curl_easy_init();
+    if (curl) {
+        curl_easy_setopt(curl, CURLOPT_URL, "http://192.168.0.117/move");  // Change IP if needed
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L); // 2 seconds timeout
+        CURLcode res = curl_easy_perform(curl);
+        if (res != CURLE_OK) {
+            cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << endl;
+        }
+        curl_easy_cleanup(curl);
+    }
+}
+
 void detectionLoop(Mat cameraMatrix, Mat distCoeffs, float markerLength) {
+    bool previouslyDetected = false;
+    auto lastTrigger = chrono::steady_clock::now();
+
     while (running) {
         Mat frame;
         {
@@ -53,6 +70,20 @@ void detectionLoop(Mat cameraMatrix, Mat distCoeffs, float markerLength) {
         {
             std::lock_guard<std::mutex> lock(ballMutex);
             detectedBalls = currentBalls;
+        }
+
+        // ✅ TRIGGER LOGIC
+        if (!currentBalls.empty()) {
+            auto now = chrono::steady_clock::now();
+            auto elapsed = chrono::duration_cast<chrono::seconds>(now - lastTrigger).count();
+
+            if (!previouslyDetected || elapsed >= 5) {  // cooldown: 5 seconds
+                triggerRobotMove();
+                lastTrigger = now;
+                previouslyDetected = true;
+            }
+        } else {
+            previouslyDetected = false;
         }
 
         // 2. Arena detection & top-down view with balls
