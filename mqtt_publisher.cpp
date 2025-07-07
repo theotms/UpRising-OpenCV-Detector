@@ -1,5 +1,8 @@
 #include "mqtt_publisher.h"
 #include <iostream>
+#include "json.hpp"
+using json = nlohmann::json;
+
 
 MQTTPublisher::MQTTPublisher(const std::string& address, const std::string& topic)
     : serverAddress(address), topicName(topic), client(address, "vision_publisher") {}

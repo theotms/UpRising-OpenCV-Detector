@@ -3,6 +3,9 @@
 
 #include <mqtt/async_client.h>
 #include <string>
+#include "json.hpp"
+using json = nlohmann::json;
+
 
 class MQTTPublisher {
 public:

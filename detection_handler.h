@@ -6,6 +6,9 @@
 #include <mutex>
 #include <vector>
 #include "ball_detector.h"
+#include "json.hpp"
+using json = nlohmann::json;
+
 
 struct SharedState {
     std::atomic<bool> running;

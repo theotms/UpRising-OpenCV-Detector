@@ -5,6 +5,9 @@
 #include <mutex>                    // For thread-safe access to shared data
 
 #include "camera_handler.h"
+#include "json.hpp"
+using json = nlohmann::json;
+
 
 std::atomic<bool> running(true);
 cv::Mat sharedFrame;

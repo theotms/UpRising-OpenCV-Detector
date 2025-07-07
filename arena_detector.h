@@ -5,6 +5,9 @@
 #include <opencv2/aruco.hpp>
 #include <vector>
 #include "ball_detector.h"
+#include "json.hpp"
+using json = nlohmann::json;
+
 
 // Detects arena corner markers and draws arena + top-down view.
 // Takes previously detected balls to overlay them on the top-down view.

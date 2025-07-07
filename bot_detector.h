@@ -3,12 +3,18 @@
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/aruco.hpp>
+#include "json.hpp"
+using json = nlohmann::json;
 
-// Detects bots (ArUco markers 1–4) and draws labels + pose axes.
-// 1 & 2 = player-controlled bots; 3 & 4 = AI bots.
-void detectBots(cv::Mat& frame,
-                const cv::Mat& cameraMatrix,
-                const cv::Mat& distCoeffs,
-                float markerLength);
+// Bot structure for world state
+struct DetectedBot {
+    int id;
+    cv::Point2f center;
+    float angleDeg;
+    bool isAI;
+};
+
+std::vector<DetectedBot> detectBots(cv::Mat& frame, const cv::Mat& cameraMatrix,
+                                    const cv::Mat& distCoeffs, float markerLength);
 
 #endif // BOT_DETECTOR_H

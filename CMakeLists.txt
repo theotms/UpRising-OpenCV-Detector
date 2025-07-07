@@ -21,6 +21,7 @@ add_executable(aruco_detector
         camera_handler.cpp
         detection_handler.cpp
         mqtt_publisher.cpp
+        world_state.h
 )
 
 # file(GLOB HEADER_FILES *.h)

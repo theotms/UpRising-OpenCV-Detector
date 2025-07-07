@@ -4,18 +4,22 @@
 #include <opencv2/opencv.hpp>
 #include <thread>
 #include "mqtt_publisher.h"
+#include "json.hpp"
+#include "world_state.h"
 
 
+using json = nlohmann::json;
 using namespace cv;
 using namespace std;
 
 void detectionLoop(const Mat& cameraMatrix, const Mat& distCoeffs,
                    float markerLength, SharedState& state) {
 
-    MQTTPublisher mqtt("tcp://192.168.0.122:1883", "arena/ball");
+    MQTTPublisher mqtt("tcp://192.168.0.122:1883", "arena/world");
     mqtt.connect();
 
-    auto lastPublished = chrono::steady_clock::now();
+    auto lastBallPublished = chrono::steady_clock::now();
+    auto lastWorldPublished = chrono::steady_clock::now();
 
     while (state.running) {
         Mat frame;
@@ -27,29 +31,55 @@ void detectionLoop(const Mat& cameraMatrix, const Mat& distCoeffs,
 
         if (frame.empty()) continue;
 
-        // Detect balls first
+        // === Detect balls ===
         vector<Ball> currentBalls = detectOrangeBalls(frame);
         {
             lock_guard<mutex> lock(state.ballMutex);
             state.detectedBalls = currentBalls;
         }
 
-        // Debounced publishing: only send if interval passed
+        // === BALL_DETECTED signal (every 3s max) ===
         if (!currentBalls.empty()) {
             auto now = chrono::steady_clock::now();
-            auto elapsed = chrono::duration_cast<chrono::seconds>(now - lastPublished).count();
+            auto elapsed = chrono::duration_cast<chrono::seconds>(now - lastBallPublished).count();
 
-            if (elapsed >= 3) {  // wait at least 3 seconds between sends
+            if (elapsed >= 3) {
                 mqtt.publish("BALL_DETECTED");
-                lastPublished = now;
+                lastBallPublished = now;
             }
         }
 
-        // Continue with arena and bot detection
+        // === Detect arena + bots ===
         detectArenaMarkers(frame, cameraMatrix, distCoeffs, markerLength, currentBalls);
-        detectBots(frame, cameraMatrix, distCoeffs, markerLength);
+        vector<DetectedBot> bots = detectBots(frame, cameraMatrix, distCoeffs, markerLength);
 
-        // HUD
+        // === Build world state ===
+        WorldState world;
+        for (const auto& bot : bots) {
+            Bot b;
+            b.id = bot.id;
+            b.center = bot.center;
+            b.angle = bot.angleDeg;
+            b.is_ai = bot.isAI;
+            world.bots.push_back(b);
+        }
+
+
+        if (!currentBalls.empty()) {
+            world.ball.center = currentBalls.front().center; // use first ball
+        }
+
+        // === Publish full world state (1Hz) ===
+        auto now = chrono::steady_clock::now();
+        auto elapsed = chrono::duration_cast<chrono::milliseconds>(now - lastWorldPublished).count();
+
+        if (elapsed >= 1000) {
+            json j = world;
+            mqtt.publish(j.dump());
+            lastWorldPublished = now;
+        }
+
+        // === HUD and frame output ===
         putText(frame, "Balls: " + to_string(currentBalls.size()), Point(10, 30),
                 FONT_HERSHEY_SIMPLEX, 0.6,
                 currentBalls.empty() ? Scalar(0, 0, 255) : Scalar(0, 255, 0), 2);
@@ -62,6 +92,7 @@ void detectionLoop(const Mat& cameraMatrix, const Mat& distCoeffs,
         }
     }
 }
+
 
 void captureLoop(VideoCapture& cap, SharedState& state) {
     Mat local;

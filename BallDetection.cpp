@@ -2,8 +2,9 @@
 // Created by nischal on 6/10/25.
 //
 #include "ball_detector.h"
-
-
+#include <opencv2/opencv.hpp>
+#include "json.hpp"
+using json = nlohmann::json;
 using namespace cv;
 using namespace std;
 
@@ -32,18 +33,9 @@ vector<Ball> detectOrangeBalls(const Mat& frame) {
             minEnclosingCircle(contour, center, radius);
             float circularity = area / (CV_PI * radius * radius);
             if (circularity > 0.6) {
-                balls.push_back({center, radius, ballId++});
+                balls.push_back({center});
             }
         }
     }
     return balls;
-}
-
-Scalar getBallColor(int id) {
-    vector<Scalar> colors = {
-        Scalar(0,255,255), Scalar(255,0,255), Scalar(255,255,0),
-        Scalar(0,255,0), Scalar(255,0,0), Scalar(0,0,255),
-        Scalar(255,255,255), Scalar(128,128,128)
-    };
-    return colors[(id - 1) % colors.size()];
 }
