@@ -12,8 +12,8 @@ vector<Ball> detectOrangeBalls(const Mat& frame) {
     Mat hsv, mask;
     cvtColor(frame, hsv, COLOR_BGR2HSV);
 
-    Scalar lowerOrange(5, 100, 100);
-    Scalar upperOrange(25, 255, 255);
+    Scalar lowerOrange(0, 96, 178);
+    Scalar upperOrange(7, 255, 255);
     inRange(hsv, lowerOrange, upperOrange, mask);
 
     Mat kernel = getStructuringElement(MORPH_ELLIPSE, Size(5, 5));

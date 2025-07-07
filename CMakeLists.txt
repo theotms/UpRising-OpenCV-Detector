@@ -12,7 +12,7 @@ include_directories(
         ${OpenCV_INCLUDE_DIRS}
 )
 
-# --- Source files ---
+# --- EXECUTABLE 1: Your main detector program ---
 add_executable(aruco_detector
         main.cpp
         BotDetection.cpp
@@ -24,11 +24,19 @@ add_executable(aruco_detector
         world_state.h
 )
 
-# file(GLOB HEADER_FILES *.h)
+# --- EXECUTABLE 2: Your new tuner tool ---
+add_executable(hsv_tuner
+        hsv_tuner.cpp
+)
 
-# --- Link libraries ---
+# --- Link libraries for the main detector ---
 target_link_libraries(aruco_detector
         ${OpenCV_LIBS}
         PahoMqttCpp::paho-mqttpp3
         curl
+)
+
+# --- Link libraries for the tuner tool ---
+target_link_libraries(hsv_tuner
+        ${OpenCV_LIBS}
 )
