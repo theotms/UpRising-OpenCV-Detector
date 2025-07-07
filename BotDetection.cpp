@@ -1,5 +1,3 @@
-// PASTE THIS ENTIRE FUNCTION INTO BotDetection.cpp
-
 #include "bot_detector.h"
 #include "json.hpp"
 #include <iostream> // <-- Add this for debugging output

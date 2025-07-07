@@ -1,5 +1,3 @@
-// PASTE THIS ENTIRE FUNCTION INTO ArenaDetection.cpp TO REPLACE THE OLD ONE
-
 #include "arena_detector.h"
 #include <opencv2/aruco.hpp>
 #include <opencv2/imgproc.hpp>

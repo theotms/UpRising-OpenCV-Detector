@@ -1,6 +1,3 @@
-//
-// Created by nischal on 6/10/25.
-//
 #include "ball_detector.h"
 #include <opencv2/opencv.hpp>
 #include "json.hpp"
