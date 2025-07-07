@@ -7,18 +7,16 @@
 #include "json.hpp"
 #include "world_state.h"
 
-
 using json = nlohmann::json;
 using namespace cv;
 using namespace std;
 
 void detectionLoop(const Mat& cameraMatrix, const Mat& distCoeffs,
-    float markerLength, SharedState& state) {
+                   float markerLength, SharedState& state) {
 
     MQTTPublisher mqtt("tcp://192.168.0.122:1883", "arena/world");
     mqtt.connect();
 
-    auto lastBallPublished = chrono::steady_clock::now();
     auto lastWorldPublished = chrono::steady_clock::now();
 
     while (state.running) {
@@ -31,73 +29,78 @@ void detectionLoop(const Mat& cameraMatrix, const Mat& distCoeffs,
 
         if (frame.empty()) continue;
 
-        // === Detect balls (no change) ===
+        // --- DETECTION LOGIC (WITH MEMORY) ---
+
+        // 1. Detect balls FIRST, as detectArenaMarkers needs this info.
         vector<Ball> currentBalls = detectOrangeBalls(frame);
-        {
-            lock_guard<mutex> lock(state.ballMutex);
-            state.detectedBalls = currentBalls;
+
+        // 2. Detect arena markers. If successful, update our memory.
+        //    CORRECTED: Added 'currentBalls' back to the function call.
+        Mat current_H = detectArenaMarkers(frame, cameraMatrix, distCoeffs, markerLength, currentBalls);
+        if (!current_H.empty()) {
+            lock_guard<mutex> lock(state.dataMutex);
+            state.last_known_H = current_H;
         }
 
-        // === BALL_DETECTED signal (no change) ===
-        if (!currentBalls.empty()) {
-            // ... (this block is unchanged) ...
+        // 3. Detect bots. If successful, update our memory.
+        vector<DetectedBot> current_bots = detectBots(frame, cameraMatrix, distCoeffs, markerLength);
+        if (!current_bots.empty()) {
+            lock_guard<mutex> lock(state.dataMutex);
+            state.last_known_bots = current_bots;
         }
 
-        // === MODIFIED LOGIC FLOW ===
 
-        // 1. Detect arena and get the perspective transform matrix
-        Mat H = detectArenaMarkers(frame, cameraMatrix, distCoeffs, markerLength, currentBalls);
+        // --- PUBLISHING LOGIC (ALWAYS USES MEMORY) ---
+        auto now = chrono::steady_clock::now();
+        auto elapsed = chrono::duration_cast<chrono::milliseconds>(now - lastWorldPublished).count();
 
-        // 2. Only proceed if the arena was successfully found (H is not empty)
-        if (!H.empty()) {
-            // 3. Detect bots to get their raw pixel coordinates
-            vector<DetectedBot> bots = detectBots(frame, cameraMatrix, distCoeffs, markerLength);
-
-            // 4. NEW: Transform bot coordinates to the top-down map view
-            vector<Point2f> bot_centers_in, bot_centers_out;
-            for(const auto& bot : bots) {
-                bot_centers_in.push_back(bot.center);
-            }
-
-            if (!bot_centers_in.empty()) {
-                perspectiveTransform(bot_centers_in, bot_centers_out, H);
-            }
-
-            // 5. Build world state using the NEW transformed coordinates
+        if (elapsed >= 1000) {
             WorldState world;
-            for (size_t i = 0; i < bots.size(); ++i) {
-                Bot b;
-                b.id = bots[i].id;
-                b.center = bot_centers_out[i]; // Use the transformed center
-                b.angle = bots[i].angleDeg;
-                b.is_ai = bots[i].isAI;
-                world.bots.push_back(b);
+            Mat H_for_transform;
+            vector<DetectedBot> bots_to_transform;
+
+            // Get a consistent snapshot of the data from memory
+            {
+                lock_guard<mutex> lock(state.dataMutex);
+                H_for_transform = state.last_known_H;
+                bots_to_transform = state.last_known_bots;
             }
 
-            if (!currentBalls.empty()) {
-                // Also transform the ball's coordinates
+            // Only proceed if we have a valid transform AND bots to transform
+            if (!H_for_transform.empty() && !bots_to_transform.empty()) {
+                // Transform bot coordinates to the top-down map view
+                vector<Point2f> bot_centers_in, bot_centers_out;
+                for(const auto& bot : bots_to_transform) {
+                    bot_centers_in.push_back(bot.center);
+                }
+                perspectiveTransform(bot_centers_in, bot_centers_out, H_for_transform);
+
+                // Build world state using the transformed coordinates
+                for (size_t i = 0; i < bots_to_transform.size(); ++i) {
+                    Bot b;
+                    b.id = bots_to_transform[i].id;
+                    b.center = bot_centers_out[i];
+                    b.angle = bots_to_transform[i].angleDeg;
+                    b.is_ai = bots_to_transform[i].isAI;
+                    world.bots.push_back(b);
+                }
+            }
+
+            // Transform ball coordinates if a ball is visible
+            if (!currentBalls.empty() && !H_for_transform.empty()) {
                 vector<Point2f> ball_in = {currentBalls.front().center}, ball_out;
-                perspectiveTransform(ball_in, ball_out, H);
+                perspectiveTransform(ball_in, ball_out, H_for_transform);
                 world.ball.center = ball_out[0];
             }
 
-            // 6. Publish full world state (1Hz)
-            auto now = chrono::steady_clock::now();
-            auto elapsed = chrono::duration_cast<chrono::milliseconds>(now - lastWorldPublished).count();
-
-            if (elapsed >= 1000) {
-                json j = world;
-                std::cout << "Publishing: " << j.dump() << std::endl;
-                mqtt.publish(j.dump());
-                lastWorldPublished = now;
-            }
+            // Publish the world state, which will be empty if memory is empty, but stable otherwise
+            json j = world;
+            std::cout << "Publishing: " << j.dump() << std::endl;
+            mqtt.publish(j.dump());
+            lastWorldPublished = now;
         }
 
-        // === HUD and frame output (no change) ===
-        putText(frame, "Balls: " + to_string(currentBalls.size()), Point(10, 30),
-            FONT_HERSHEY_SIMPLEX, 0.6,
-            currentBalls.empty() ? Scalar(0, 0, 255) : Scalar(0, 255, 0), 2);
-
+        // --- HUD and frame output (no change) ---
         imshow("Arena View", frame);
 
         if (waitKey(1) == 'q') {
@@ -107,6 +110,7 @@ void detectionLoop(const Mat& cameraMatrix, const Mat& distCoeffs,
     }
 }
 
+// The captureLoop function remains completely unchanged.
 void captureLoop(VideoCapture& cap, SharedState& state) {
     Mat local;
     while (state.running) {
@@ -121,4 +125,3 @@ void captureLoop(VideoCapture& cap, SharedState& state) {
         this_thread::sleep_for(chrono::milliseconds(1));
     }
 }
-

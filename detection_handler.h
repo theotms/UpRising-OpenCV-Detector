@@ -6,16 +6,20 @@
 #include <mutex>
 #include <vector>
 #include "ball_detector.h"
+#include "bot_detector.h" // <-- ADDED: We need to know about DetectedBot
 #include "json.hpp"
-using json = nlohmann::json;
 
+using json = nlohmann::json;
 
 struct SharedState {
     std::atomic<bool> running;
     cv::Mat sharedFrame;
     std::mutex frameMutex;
-    std::mutex ballMutex;
-    std::vector<Ball> detectedBalls;
+
+    // --- MODIFIED STATE ---
+    std::mutex dataMutex; // A single mutex for all our shared data
+    std::vector<DetectedBot> last_known_bots; // Memory for bots
+    cv::Mat last_known_H; // Memory for the perspective transform
 
     SharedState() : running(true) {}
 };
