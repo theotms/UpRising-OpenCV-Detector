@@ -12,7 +12,7 @@ void on_trackbar(int, void*) {}
 int main() {
     // --- Camera Setup ---
     // Change the '0' if your camera is not the default one (e.g., to 1, 2, etc.)
-    cv::VideoCapture cap(2);
+    cv::VideoCapture cap(0);
     if (!cap.isOpened()) {
         std::cerr << "ERROR: Could not open camera" << std::endl;
         return -1;

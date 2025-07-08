@@ -1,17 +1,10 @@
-#ifndef ARENA_DETECTOR_H
-#define ARENA_DETECTOR_H
+#ifndef CAM_ARUCO_ARENA_DETECTOR_H
+#define CAM_ARUCO_ARENA_DETECTOR_H
 
 #include <opencv2/opencv.hpp>
-#include <opencv2/aruco.hpp>
-#include <vector>
-#include "ball_detector.h"
-#include "json.hpp"
-using json = nlohmann::json;
+#include "ball_detector.h" // Include for Ball struct
 
+// UPDATED FUNCTION SIGNATURE
+cv::Mat detectArenaMarkers(const cv::Mat& frame, cv::Mat& displayFrame, const cv::Mat& cameraMatrix, const cv::Mat& distCoeffs, float markerLength, const std::vector<Ball>& balls);
 
-// Detects arena corner markers and draws arena + top-down view.
-// Takes previously detected balls to overlay them on the top-down view.
-cv::Mat detectArenaMarkers(cv::Mat& frame, const cv::Mat& cameraMatrix, const cv::Mat& distCoeffs,
-                           float markerLength, const std::vector<Ball>& balls);
-
-#endif // ARENA_DETECTOR_H
+#endif //CAM_ARUCO_ARENA_DETECTOR_H

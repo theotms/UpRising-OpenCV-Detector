@@ -1,71 +1,42 @@
 #include "bot_detector.h"
-#include "json.hpp"
-#include <iostream> // <-- Add this for debugging output
 
-using json = nlohmann::json;
 using namespace cv;
 using namespace std;
-using namespace aruco;
 
-vector<DetectedBot> detectBots(Mat& frame, const Mat& cameraMatrix, const Mat& distCoeffs, float markerLength) {
-    vector<DetectedBot> detected;
-
-    Ptr<Dictionary> dictionary = getPredefinedDictionary(DICT_4X4_50);
+vector<DetectedBot> detectBots(const Mat& frame, Mat& displayFrame, const Mat& cameraMatrix, const Mat& distCoeffs, float markerLength) {
     vector<int> ids;
     vector<vector<Point2f>> corners;
+    auto dictionary = aruco::getPredefinedDictionary(aruco::DICT_4X4_50);
+    aruco::detectMarkers(frame, dictionary, corners, ids);
 
-    detectMarkers(frame, dictionary, corners, ids);
-    if (ids.empty()) {
-        return detected;
-    }
+    vector<DetectedBot> found_bots;
 
-    // NEW: Debugging output
-    std::cout << "Markers found this frame. IDs: ";
-    for(int id : ids) std::cout << id << " ";
-    std::cout << std::endl;
+    if (!ids.empty()) {
+        // Draw all detected markers onto the display frame
+        aruco::drawDetectedMarkers(displayFrame, corners, ids);
 
-    vector<Point3f> objectPoints = {
-        {-markerLength/2,  markerLength/2, 0},
-        { markerLength/2,  markerLength/2, 0},
-        { markerLength/2, -markerLength/2, 0},
-        {-markerLength/2, -markerLength/2, 0}
-    };
+        vector<Vec3d> rvecs, tvecs;
+        aruco::estimatePoseSingleMarkers(corners, markerLength, cameraMatrix, distCoeffs, rvecs, tvecs);
 
-    for (size_t i = 0; i < ids.size(); ++i) {
-        int id = ids[i];
-        
-        // Check if the marker ID is one of our bots
-        if (id >= 1 && id <= 4) {
-            
-            // Check if we have exactly 4 corners for this marker
-            if (corners[i].size() == 4) {
-                Point2f center(0, 0);
-                for (const auto& pt : corners[i]) center += pt;
-                center *= 0.25f;
+        for (int i = 0; i < ids.size(); ++i) {
+            // Filter for bot markers only (IDs less than 46)
+            if (ids[i] < 46) {
+                // Draw axis on the display frame
+                aruco::drawAxis(displayFrame, cameraMatrix, distCoeffs, rvecs[i], tvecs[i], markerLength * 0.5f);
 
-                Point2f dir = corners[i][0] - corners[i][1];
-                float angle = atan2(dir.y, dir.x) * 180.0 / CV_PI;
+                Point2f center = (corners[i][0] + corners[i][1] + corners[i][2] + corners[i][3]) / 4;
 
-                DetectedBot bot;
-                bot.id = id;
-                bot.center = center;
-                bot.angleDeg = angle;
-                bot.isAI = (id >= 3);
+                Point2f top_mid = (corners[i][0] + corners[i][1]) / 2;
+                Point2f bottom_mid = (corners[i][2] + corners[i][3]) / 2;
+                float angleRad = atan2(top_mid.y - bottom_mid.y, top_mid.x - bottom_mid.x);
+                float angleDeg = angleRad * 180.0 / CV_PI;
 
-                detected.push_back(bot); // Add the bot to our list
+                // Draw the orientation line on the display frame
+                line(displayFrame, bottom_mid, top_mid, Scalar(0, 255, 0), 2);
 
-                // Drawing logic (no change)
-                Scalar color = bot.isAI ? Scalar(0, 0, 255) : Scalar(255, 255, 0);
-                string label = (bot.isAI ? "AI " : "Player ") + to_string(id);
-                putText(frame, label, center + Point2f(5, -5), FONT_HERSHEY_SIMPLEX, 0.6, color, 2);
-                circle(frame, center, 6, color, FILLED);
-
-            } else {
-                // NEW: Debugging output if corners are wrong
-                std::cout << "-> WARNING: Marker ID " << id << " was found, but with " << corners[i].size() << " corners instead of 4. Skipping." << std::endl;
+                found_bots.push_back({ids[i], center, angleDeg, true});
             }
         }
     }
-
-    return detected;
+    return found_bots;
 }

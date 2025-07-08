@@ -1,12 +1,10 @@
-#ifndef BOT_DETECTOR_H
-#define BOT_DETECTOR_H
+#ifndef CAM_ARUCO_BOT_DETECTOR_H
+#define CAM_ARUCO_BOT_DETECTOR_H
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/aruco.hpp>
-#include "json.hpp"
-using json = nlohmann::json;
+#include <vector>
 
-// Bot structure for world state
 struct DetectedBot {
     int id;
     cv::Point2f center;
@@ -14,7 +12,7 @@ struct DetectedBot {
     bool isAI;
 };
 
-std::vector<DetectedBot> detectBots(cv::Mat& frame, const cv::Mat& cameraMatrix,
-                                    const cv::Mat& distCoeffs, float markerLength);
+// UPDATED FUNCTION SIGNATURE
+std::vector<DetectedBot> detectBots(const cv::Mat& frame, cv::Mat& displayFrame, const cv::Mat& cameraMatrix, const cv::Mat& distCoeffs, float markerLength);
 
-#endif // BOT_DETECTOR_H
+#endif //CAM_ARUCO_BOT_DETECTOR_H
