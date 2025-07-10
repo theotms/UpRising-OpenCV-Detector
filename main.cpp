@@ -32,7 +32,7 @@ int main() {
 
     float markerLength = 0.15f;
 
-    VideoCapture cap("/dev/video0", CAP_V4L2);
+    VideoCapture cap("/dev/video2", CAP_V4L2);
     if (!cap.isOpened()) {
         cerr << "Failed to open camera." << endl;
         return -1;
