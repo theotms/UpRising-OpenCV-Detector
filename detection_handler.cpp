@@ -76,6 +76,7 @@ void detectionLoop(const Mat& cameraMatrix, const Mat& distCoeffs,
                 }
 
                 if (!H_for_transform.empty()) {
+                    // Transform bot positions
                     if (!bots_to_transform.empty()) {
                         vector<Point2f> bot_centers_in, bot_centers_out;
                         for(const auto& bot : bots_to_transform) { bot_centers_in.push_back(bot.center); }
@@ -84,11 +85,20 @@ void detectionLoop(const Mat& cameraMatrix, const Mat& distCoeffs,
                             world.bots.push_back({bots_to_transform[i].id, bot_centers_out[i], bots_to_transform[i].angleDeg, bots_to_transform[i].isAI});
                         }
                     }
+
+                    // --- MODIFIED BALL HANDLING ---
+                    // Transform all detected ball positions to the top-down view
                     if (!currentBalls.empty()) {
-                        vector<Point2f> ball_in = {currentBalls.front().center}, ball_out;
-                        perspectiveTransform(ball_in, ball_out, H_for_transform);
-                        world.ball.center = ball_out[0];
-                        world.ball.radius = currentBalls.front().radius;
+                        vector<Point2f> ball_centers_in, ball_centers_out;
+                        for(const auto& ball : currentBalls) {
+                            ball_centers_in.push_back(ball.center);
+                        }
+                        perspectiveTransform(ball_centers_in, ball_centers_out, H_for_transform);
+
+                        // Add all transformed balls to the world state
+                        for(size_t i = 0; i < currentBalls.size(); ++i) {
+                            world.balls.push_back({ball_centers_out[i], currentBalls[i].radius, currentBalls[i].id});
+                        }
                     }
                 }
             }
@@ -109,7 +119,16 @@ void detectionLoop(const Mat& cameraMatrix, const Mat& distCoeffs,
 
             // 7. DRAW TOP-DOWN VIEW
             Mat topDownMap = Mat::zeros(480, 480, CV_8UC3);
-            if (world.ball.radius > 0) { circle(topDownMap, world.ball.center, 10, Scalar(0, 165, 255), -1); }
+
+            // --- MODIFIED BALL DRAWING ---
+            // Draw all the balls from the world state
+            for (const auto& ball : world.balls) {
+                if (ball.radius > 0) {
+                    circle(topDownMap, ball.center, 10, Scalar(0, 165, 255), -1); // Orange color for balls
+                }
+            }
+
+            // Draw all the bots
             for (const auto& bot : world.bots) {
                 RotatedRect botRect(bot.center, Size2f(30, 25), bot.angle);
                 Point2f vertices[4];

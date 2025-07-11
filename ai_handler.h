@@ -3,6 +3,7 @@
 
 #include <map>
 #include <string>
+#include <vector>
 #include <onnxruntime_cxx_api.h>
 #include "world_state.h"
 
@@ -25,6 +26,9 @@ private:
     Ort::Env env;
     Ort::Session session;
     Ort::AllocatorWithDefaultOptions allocator;
+
+    // Helper function to create the 22-feature observation vector for a single bot
+    std::vector<float> createObservationVector(const Bot& current_bot, const WorldState& world);
 };
 
 #endif //CAM_ARUCO_AI_HANDLER_H

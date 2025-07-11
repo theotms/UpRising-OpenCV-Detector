@@ -3,7 +3,10 @@
 
 #include <vector>
 #include <opencv2/core.hpp>
-#include "ball_detector.h"  // uses Ball with fields: center (cv::Point2f), radius, id
+#include "ball_detector.h"
+#include "json.hpp"
+
+using json = nlohmann::json;
 
 struct Bot {
     int id;
@@ -14,12 +17,10 @@ struct Bot {
 
 struct WorldState {
     std::vector<Bot> bots;
-    Ball ball;
+    std::vector<Ball> balls; // MODIFIED: Now stores a vector of balls
 };
 
-#include "json.hpp"
-using json = nlohmann::json;
-
+// JSON serialization functions (no changes needed here)
 inline void to_json(json& j, const Ball& b) {
     j = json{
             {"center", {b.center.x, b.center.y}},
@@ -39,7 +40,7 @@ inline void to_json(json& j, const Bot& b) {
 inline void to_json(json& j, const WorldState& w) {
     j = json{
             {"bots", w.bots},
-            {"ball", w.ball}
+            {"balls", w.balls} // MODIFIED: Serializes the vector of balls
     };
 }
 
