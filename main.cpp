@@ -51,8 +51,8 @@ int main() {
         cerr << "ERROR: Failed to open camera on /dev/video2." << endl;
         return -1;
     }
-    cap.set(CAP_PROP_FRAME_WIDTH, 640);
-    cap.set(CAP_PROP_FRAME_HEIGHT, 480);
+    cap.set(CAP_PROP_FRAME_WIDTH, 860);
+    cap.set(CAP_PROP_FRAME_HEIGHT, 720);
 
     // --- 3. Start Processing Threads ---
     SharedState state; // This object is shared between the two threads
