@@ -1,0 +1,3 @@
+/home/koneauto6/Documents/Ball_Version/Cam_aruco-20250613T075625Z-1-001/Cam_aruco/build/CMakeFiles/aruco_detector.dir
+/home/koneauto6/Documents/Ball_Version/Cam_aruco-20250613T075625Z-1-001/Cam_aruco/build/CMakeFiles/edit_cache.dir
+/home/koneauto6/Documents/Ball_Version/Cam_aruco-20250613T075625Z-1-001/Cam_aruco/build/CMakeFiles/rebuild_cache.dir
